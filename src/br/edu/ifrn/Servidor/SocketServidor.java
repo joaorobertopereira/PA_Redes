@@ -1,95 +1,95 @@
 package br.edu.ifrn.Servidor;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.net.SocketException;
+import java.util.LinkedList;
+import java.util.List;
 
+/**
+ * @author joao
+ * Classe que implementa a parte do servidor
+ * socket na aplicação
+ */
 public class SocketServidor {
 
-    private int porta;
-    //Declaro o ServerSocket
-    private ServerSocket servidor = null;
-    //Declaro o Socket de comunicação  
-    private Socket comunicacao = null;
-    //Declaro o leitor para a entrada de dados  
-    private BufferedReader entrada = null;
+    private ServerSocket servidor;
+    private Socket cliente;
+    private List<DataInputStream> clientes;
 
-    public int getPorta() {
-        return porta;
+    /**Construtor da classe*/
+    public SocketServidor( int porta ) throws IOException{
+         this.servidor = new ServerSocket(porta);
+         this.clientes = new LinkedList<DataInputStream>();
+   }
+
+    /**Fica ouvindo para receber novas conexões*/
+    public void recebeCliente() throws Exception {
+         try{
+            //Abre conexão
+            this.cliente = this.servidor.accept();
+            InputStream input = this.cliente.getInputStream();
+            DataInputStream leitor = new DataInputStream( input );
+            this.clientes.add( leitor );
+         }catch(Exception ex){
+            System.err.println("Cliente não recebido "+ex);
+         }
     }
 
-    public void setPorta(int porta) {
-        this.porta = porta;
+    /**Envia mensagem com codificação ISO8859-1*/
+    public void enviarMsg(String mensagem) throws IOException{
+       //Envia mensagem de confirmação de recebimento do Cliente
+       OutputStream output = this.cliente.getOutputStream();
+       DataOutputStream escritor = new DataOutputStream(output);
+       escritor.write(mensagem.getBytes("ISO8859-1"));
+   }
+
+    /**Recebe mensagem*/
+    public String receberMsg() throws IOException, ClassNotFoundException {
+        //recebe mensagem do ultimo cliente adicionado na lista
+        byte[] saida = new byte[1000];
+        clientes.get(clientes.size()-1).read(saida);
+        String msg = new String(saida);        
+        return msg;
     }
 
-    public ServerSocket getServidor() {
-        return servidor;
+    /**Seta timeout*/
+    public void setTimeout(int time) throws SocketException{
+        servidor.setSoTimeout(time);
     }
 
-    public void setServidor(ServerSocket servidor) {
-        this.servidor = servidor;
-    }
-
-    public Socket getComunicacao() {
-        return comunicacao;
-    }
-
-    public void setComunicacao(Socket comunicacao) {
-        this.comunicacao = comunicacao;
-    }
-
-    public BufferedReader getEntrada() {
-        return entrada;
-    }
-
-    public void setEntrada(BufferedReader entrada) {
-        this.entrada = entrada;
-    }
-
-    public SocketServidor(int porta) {
-        this.porta = porta;
+    public void closeServer(){
         try {
-            //Cria o ServerSocket na porta 7000 se estiver disponível  
-            servidor = new ServerSocket(porta);
+            servidor.close();
         } catch (IOException ex) {
-            Logger.getLogger(SocketServidor.class.getName()).log(Level.SEVERE, null, ex);
+            System.err.println("Não foi possível fechar o servidor: "+ex);
         }
     }
 
-    public void FecharConexao() {
-        try {
+    /**Ao receber conexão exibe o ip de quem requisitou a conexão*/
+    public String getIpCliente(){
+       return String.valueOf(this.cliente.getInetAddress());
+    }
 
-            //Encerro o socket de comunicação  
-            this.comunicacao.close();
-
-            //Encerro o ServerSocket  
-            this.servidor.close();
-
-        } catch (IOException e) {
+    /**Fecha conexão do socket*/
+    public void fecharServidor() throws IOException {
+        for( DataInputStream cliente : this.clientes ) {
+                cliente.close();
         }
     }
 
-    public boolean IniciaServico() throws IOException {
-        boolean retorno = false;
-        //Aguarda uma conexão na porta especificada e cria retorna o socket que irá comunicar com o cliente  
-        setComunicacao(this.servidor.accept());
-        try {
+    /**Testa se a conexao do servidor esta aberta*/
+    public boolean testeServidor(){
+        boolean status = false;
+        if(this.servidor.isClosed()){
+            status = true;
+        }
+        return status;
+   }
 
-            //Cria um BufferedReader para o canal da stream de entrada de dados do socket s  
-            entrada = new BufferedReader(new InputStreamReader(this.comunicacao.getInputStream()));
-
-            //Aguarda por algum dado e imprime a linha recebida quando recebe  
-            System.out.println(entrada.readLine());
-            retorno = true;
-            //trata possíveis excessões de input/output. Note que as excessões são as mesmas utilizadas para as classes de java.io      
-        } catch (IOException e) {
-            System.out.println("Algum problema ocorreu para criar ou receber o socket.");
-            
-        } 
-        return retorno;
-    }
 }
